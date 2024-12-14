@@ -1,14 +1,10 @@
 <script lang="ts">
-	import Sidebar from "../components/Sidebar.svelte";
+	// import Sidebar from "../components/Sidebar.svelte";
+	// import ShaderSelection from "../components/ShaderSelection.svelte";
+
+	
 </script>
 
-<svelte:head>
-	<title>OBEN | MANDELBOX</title>
-	<meta name="description" content="OBEN Fractal Viewer" />
-</svelte:head>
-
-
-<Sidebar/>
 
 <style>
 </style>

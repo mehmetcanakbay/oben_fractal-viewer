@@ -1,9 +1,18 @@
 struct Utils {
     deltaTime: f32,
-    totalTime: f32
+    totalTime: f32,
+    resolution: vec2<f32>
 };
 
-@group(0) @binding(0) var<uniform> utils : Utils;
+struct Camera {
+    rayOrigin: vec4<f32>,
+    posOffset: vec4<f32>,
+    rotationOffset: vec4<f32>,
+}
+
+@group(0) @binding(0) var<uniform> utils: Utils;
+@group(0) @binding(1) var<uniform> camera: Camera;
+
 
 @fragment
 fn main(

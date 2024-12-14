@@ -3,33 +3,58 @@
 	import '../app.css';
 	import { Renderer } from '../core/renderer';
 	import mandelFrag from "../core/shaders/mandelbox/mandelbox.frag.wgsl?raw"
-	
-	let canvas : HTMLCanvasElement;
+	import basicFrag from "../core/shaders/basic.frag.wgsl?raw"
+	import Sidebar from "../components/Sidebar.svelte";
+	import ShaderSelection from "../components/ShaderSelection.svelte";
 
+	let { children } = $props();
+	
+	let canvas : HTMLCanvasElement | undefined = $state();
+	let renderer : Renderer;
 	onMount(()=>{
-		const renderer = new Renderer("mainCanvas", mandelFrag);
+		renderer = new Renderer("mainCanvas", ()=>{
+			renderer.setupPipelines([mandelFrag, basicFrag]);
+		});
+		renderer.switchPipeline(0);
+		renderer.start();
 
 		const resizeCanvas = ()=> {
-			canvas.width = window.innerWidth;
-			canvas.height = window.innerHeight;
+			if (canvas) {
+				canvas.width = window.innerWidth;
+				canvas.height = window.innerHeight;
+			}
 		}
 		window.addEventListener('resize', resizeCanvas, false);
 		resizeCanvas();
 	})
 
+	type shaderChangeData = {
+		data: number
+	}
+	function onChangeShader(data: shaderChangeData) {
+		renderer.switchPipeline(data.data);
+	}
+
 </script>
+
+<svelte:head>
+	<title>OBEN | MANDELBOX</title>
+	<meta name="description" content="OBEN Fractal Viewer" />
+</svelte:head>
 
 <div class="app">
 	<main>
 		<div id="app">
 			<canvas width="1200" height="1000" id="mainCanvas" bind:this={canvas}></canvas>
 		</div>
-		<slot />
-	</main>
 
-	<!-- <footer>
-		<p>visit <a href="https://kit.svelte.dev">kit.svelte.dev</a> to learn SvelteKit</p>
-	</footer> -->
+		<div class="relative h-full w-full">
+			<div class="fixed top-0 w-1/2">
+				<ShaderSelection onClickAny={onChangeShader}/>
+			</div>
+		</div>
+		<Sidebar/>
+	</main>
 </div>
 
 <style>

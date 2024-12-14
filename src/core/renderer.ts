@@ -13,7 +13,8 @@ export class Renderer {
     private uniformBuffer: GPUBuffer;
     private cameraUniformBuffer: GPUBuffer;
     private bindGroup: GPUBindGroup;
-    private pipeline: GPURenderPipeline;
+    private pipelines: GPURenderPipeline[] = [];
+    private selectedPipeline: number = 0;
     private uniformVals: Float32Array;
     private cameraUniformVals: Float32Array;
     private startTime: number;
@@ -23,15 +24,21 @@ export class Renderer {
     private vertexBufferLayout: GPUVertexBufferLayout;
     private vertBuffer: GPUBuffer;
 
-    constructor(canvasId: string, fragShader: string) {
+    private presentationFormat: GPUTextureFormat;
+
+    constructor(canvasId: string, onInitializationFinish:  ()=>void) {
         this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
         this.inputHandler = createInputHandler(this.canvas);
         this.camera = new ArcballCamera();
 
-        this.initialize(fragShader);
+        this.initialize(onInitializationFinish);
     }
 
-    private async initialize(fragShader: string) {
+    public switchPipeline(id: number) {
+        this.selectedPipeline = id;
+    }
+
+    private async initialize(onInitFinish : ()=>void) {
         const adapter = await navigator.gpu.requestAdapter();
         if (adapter) 
             this.device = await adapter.requestDevice();
@@ -42,19 +49,29 @@ export class Renderer {
         window.addEventListener('resize', () => this.resizeCanvas(), false);
 
         this.context = this.canvas.getContext("webgpu") as GPUCanvasContext;
-        const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
+        this.presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
         this.context.configure({
             device: this.device,
-            format: presentationFormat,
+            format: this.presentationFormat,
             alphaMode: 'premultiplied',
         });
 
         this.setupBuffers();
-        this.setupPipeline(presentationFormat, fragShader);
+
+        onInitFinish();
+    }
+
+    public setupPipelines(fragShaders: string[]) {
+        for (let i = 0; i<fragShaders.length;i++) {
+            const pipeline : GPURenderPipeline = this.setupPipeline(this.presentationFormat, fragShaders[i]);
+            this.pipelines.push(pipeline);
+        }
+    }
+
+    public start() {
         this.startTime = Date.now();
         this.lastTime = Date.now();
-
         requestAnimationFrame(() => this.frame());
     }
 
@@ -124,7 +141,7 @@ export class Renderer {
             bindGroupLayouts: [this.bindGroupLayout],
         });
 
-        this.pipeline = this.device.createRenderPipeline({
+        const newPipeline : GPURenderPipeline  = this.device.createRenderPipeline({
             layout: pipelineLayout,
             vertex: {
                 module: this.device.createShaderModule({ code: basicVert }),
@@ -135,10 +152,15 @@ export class Renderer {
                 targets: [{ format: presentationFormat }]
             }
         });
+
+        return newPipeline
     }
 
     private async frame() {
-        if (!this.device) return;
+        if (!this.device) {
+            requestAnimationFrame(() => this.frame());
+            return;
+        }
         
         this.camera.updateCameraPosition(this.inputHandler());
         const rayOrigin = this.camera.rayOrigin;
@@ -174,7 +196,7 @@ export class Renderer {
 
         const commander = this.device.createCommandEncoder();
         const passEncoder = commander.beginRenderPass(renderPassDescriptor);
-        passEncoder.setPipeline(this.pipeline);
+        passEncoder.setPipeline(this.pipelines[this.selectedPipeline]);
         passEncoder.setBindGroup(0, this.bindGroup);
         passEncoder.setVertexBuffer(0, this.vertBuffer);
         passEncoder.draw(quadVertexCount);
