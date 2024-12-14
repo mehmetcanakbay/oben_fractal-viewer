@@ -13,80 +13,59 @@ struct Camera {
 @group(0) @binding(0) var<uniform> utils: Utils;
 @group(0) @binding(1) var<uniform> camera: Camera;
 
-
 fn rotate(pos: vec3<f32>, x: f32, y: f32, z: f32) -> vec3<f32> {
-    let rotX = mat3x3<f32>(1.0, 0.0, 0.0, 
-                         0.0, cos(x), -sin(x), 
-                         0.0, sin(x), cos(x));
-    let rotY = mat3x3<f32>(cos(y), 0.0, sin(y), 
-                         0.0, 1.0, 0.0, 
-                         -sin(y), 0.0, cos(y));
-    let rotZ = mat3x3<f32>(cos(z), -sin(z), 0.0, 
-                         sin(z), cos(z), 0.0, 
-                         0.0, 0.0, 1.0);
-    return pos * rotZ * rotY * rotX;
-}
+	let rotX: mat3x3<f32> = mat3x3<f32>(1., 0., 0., 0., cos(x), -sin(x), 0., sin(x), cos(x));
+	let rotY: mat3x3<f32> = mat3x3<f32>(cos(y), 0., sin(y), 0., 1., 0., -sin(y), 0., cos(y));
+	let rotZ: mat3x3<f32> = mat3x3<f32>(cos(z), -sin(z), 0., sin(z), cos(z), 0., 0., 0., 1.);
+	return rotX * rotY * rotZ * pos;
+} 
 
 fn rot2d(a: f32) -> mat2x2<f32> {
-    let s = sin(a);
-    let c = cos(a);
-    return mat2x2<f32>(c, -s, s, c);
-}
+	let s: f32 = sin(a);
+	let c: f32 = cos(a);
+	return mat2x2<f32>(c, -s, s, c);
+} 
 
 fn hit(r: vec3<f32>) -> f32 {
-    const SCALE: f32 = 2.;
-    const fixedRadius: f32 = 1.0;
-    const minRadius: f32 = 0.5;
-    const iters: i32 = 10;
+	var r_var = r;
+	r_var = abs(r_var);
+	var zn: vec3<f32> = vec3<f32>(r_var.xyz);
+	var rad: f32 = 0.;
+	var hit: f32 = 0.;
+	var p: f32 = 8.;
+	var d: f32 = 1.;
 
-    let fR2 = fixedRadius * fixedRadius;
-    let MR2 = minRadius * minRadius;
-    let scalevec = vec4<f32>(SCALE, SCALE, SCALE, abs(SCALE)) / MR2;
-    let C1 = abs(SCALE - 1.0);
-    let C2 = pow(abs(SCALE), f32(1 - iters));
+	for (var i: i32 = 0; i < 20; i = i + 1) {
+		rad = length(zn);
+		if (rad > 2.) {
+			hit = 0.5 * log(rad) * rad / d;
+		} else { 
+			let th : f32 = atan2( length( zn.xy ), zn.z );
+			let phi : f32 = atan2( zn.y, zn.x );		
+			let rado : f32 = pow(rad,8.0);
 
-    var p = vec4<f32>(r, 1.0);
-    // p -= vec4<f32>(camera.posOffset.xyz, 0.0);
-    let p0 = p;
+			d = pow(rad, 8.) * 8. * d + 1.;
+			let sint: f32 = sin(th * p);
+			zn.x = rado * sint * cos(phi * p);
+			zn.y = rado * sint * sin(phi * p);
+			zn.z = rado * cos(th * p);
+			zn = zn + (r_var * 1.);
+		}
+	}
 
-    for (var i: i32 = 0; i < iters; i++) {
-        let clampedXYZ = clamp(p.xyz, vec3<f32>(-1.0), vec3<f32>(1.0));
-        p = vec4<f32>(clampedXYZ * 2.0 - p.xyz, p.w); // Update p as a whole
-        
-        let r2 = dot(p.xyz, p.xyz);
-        p *= clamp(max(MR2 / r2, MR2), 0.0, 1.0);
-        p = p * scalevec + p0;
-    }
-
-    return (length(p.xyz) - C1) / p.w - C2;
-}
-
-fn softshadow(ro: vec3<f32>, rd: vec3<f32>, k: f32) -> f32 {
-    var akuma = 1.0;
-    var h = 0.0;
-    var t = 0.01;
-    for (var i: i32 = 0; i < 50; i++) {
-        h = hit(ro + rd * t);
-        if (h < 0.001) {return 0.02;}
-        akuma = min(akuma, k * h / t);
-        t += clamp(h, 0.01, 2.0);
-    }
-    return akuma;
-}
+	return hit;
+} 
 
 fn getDist(p: vec3<f32>) -> f32 {
-    return hit(p);
-}
+	let d: f32 = hit(rotate(p, 0, 0, 0)/6.0) * 6.0;
+	return d;
+} 
 
 fn getNormal(p: vec3<f32>) -> vec3<f32> {
-    let e = vec2<f32>(0.0005, 0.0);
-    var n = getDist(p) - vec3<f32>(
-        getDist(p - vec3<f32>(e.x, 0.0, 0.0)),
-        getDist(p - vec3<f32>(0.0, e.x, 0.0)),
-        getDist(p - vec3<f32>(0.0, 0.0, e.x))
-    );
-    return normalize(n);
-}
+	let e: vec2<f32> = vec2<f32>(0.005, 0.);
+	var n: vec3<f32> = getDist(p) - vec3<f32>(getDist(p - e.xyy), getDist(p - e.yxy), getDist(p - e.yyx));
+	return normalize(n);
+} 
 
 fn doMarch(ro: vec3<f32>, rd: vec3<f32>) -> f32 {
     var t: f32 = 0.0;
@@ -98,13 +77,25 @@ fn doMarch(ro: vec3<f32>, rd: vec3<f32>) -> f32 {
         if (dist < 0.001) {
             break; // found something
         }
-        if (t > 100.0) {
+        if (abs(t) > 1000.0) {
             break; // went too far ahead
         }
     }
     return t;
 }
 
+fn softshadow(ro: vec3<f32>, rd: vec3<f32>, k: f32) -> f32 {
+    var akuma = 1.0;
+    var h = 0.0;
+    var t = 0.01;
+    for (var i: i32 = 0; i < 50; i++) {
+        h = hit(ro + rd * t);
+        if (h < 0.001) {return 0.08;}
+        akuma = min(akuma, k * h / t);
+        t += clamp(h, 0.01, 2.0);
+    }
+    return akuma;
+}
 
 @fragment
 fn main(
@@ -112,19 +103,18 @@ fn main(
     @location(1) fragUV: vec2<f32>,
 ) -> @location(0) vec4f {
     let aspectRatio = utils.resolution.x / utils.resolution.y;
-
     var uv = fragUV; 
     uv = (uv-0.5);
     uv.x *= aspectRatio;
-    var ro = camera.rayOrigin.xyz;
-    
+
     let sundir = normalize(vec3<f32>(0.1, 0.8, 0.6)); 
     let sun = vec3<f32>(1.64, 1.27, 0.99); 
 
+    var ro = camera.rayOrigin.xyz;
     var forward = normalize(vec3<f32>(0.0) - ro);
     let right = normalize(cross(vec3<f32>(0.0, 1.0, 0.0), forward));
     let up = cross(forward, right);
-    
+
     ro += camera.posOffset.x * right; // Horizontal pan
     ro += camera.posOffset.y * up;     // Vertical pan
     var rd = normalize(uv.x * right + uv.y * up + forward);
@@ -133,6 +123,14 @@ fn main(
     let marchOut = doMarch(ro, rd);
 
     if (marchOut < 100.0) {
+        // let p = ro + rd * marchOut;
+        // let n = getNormal(p);
+        // let r = reflect(rd, n);
+
+        // let dif = dot(n, normalize(vec3<f32>(0,1,0)))*.5+.5;
+        
+        // col = vec3<f32>(mix(vec3<f32>(0.38, 0.27, 0.63), vec3<f32>(0.87,0.84,0.1), dif));
+        // col = vec3<f32>(col);
         let p = ro + rd * marchOut;
         let n = getNormal(p);
         let shadow = softshadow(p, sundir, 10.0);
@@ -143,8 +141,8 @@ fn main(
         col += 0.2 * bac * sun; 
         let tc0 = 0.5 + 0.5 * sin(3.0 + 4.2 + vec3<f32>(0.0, 0.5, 1.0));
         col *= vec3<f32>(0.9, 0.8, 0.6) * 0.2 * tc0;
-    } 
-    
+    }
+
     col = pow(clamp(col, vec3<f32>(0.0), vec3<f32>(1.0)), vec3<f32>(0.55)); 
     col = mix(col, vec3<f32>(dot(col, vec3<f32>(0.33))), -0.5);
 

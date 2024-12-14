@@ -3,6 +3,7 @@
 	import '../app.css';
 	import { Renderer } from '../core/renderer';
 	import mandelFrag from "../core/shaders/mandelbox/mandelbox.frag.wgsl?raw"
+	import mandelbulbFrag from "../core/shaders/mandelbulb/mandelbulb.frag.wgsl?raw"
 	import basicFrag from "../core/shaders/basic.frag.wgsl?raw"
 	import Sidebar from "../components/Sidebar.svelte";
 	import ShaderSelection from "../components/ShaderSelection.svelte";
@@ -13,9 +14,9 @@
 	let renderer : Renderer;
 	onMount(()=>{
 		renderer = new Renderer("mainCanvas", ()=>{
-			renderer.setupPipelines([mandelFrag, basicFrag]);
+			renderer.setupPipelines([mandelFrag, mandelbulbFrag, basicFrag]);
 		});
-		renderer.switchPipeline(0);
+		renderer.switchPipeline(1);
 		renderer.start();
 
 		const resizeCanvas = ()=> {
@@ -49,7 +50,7 @@
 		</div>
 
 		<div class="relative h-full w-full">
-			<div class="fixed top-0 w-1/2">
+			<div class="fixed top-0 left-1/4">
 				<ShaderSelection onClickAny={onChangeShader}/>
 			</div>
 		</div>

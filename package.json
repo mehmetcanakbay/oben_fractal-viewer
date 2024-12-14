@@ -29,6 +29,7 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"@fontsource-variable/outfit": "^5.1.0",
 		"gsap": "^3.12.5"
 	}
 }

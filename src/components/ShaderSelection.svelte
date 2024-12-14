@@ -1,29 +1,32 @@
 <script lang="ts">
-    import gsap from "gsap";
-    let scoops = $state(1);
     let { onClickAny } = $props();
 
-    //rework this this is shit
-    function onClick(data) {
-        gsap.delayedCall(0.05,()=>{
-            onClickAny({data: scoops})
-        })
+    const buttons = [0, 1, 2];
+  
+    let selectedButton = $state(1);
+
+    const buttonNames = ["Mandelbox", "Mandelbulb", "Basic"]
+    
+  
+    function handleClick(buttonId: any) {
+        selectedButton = buttonId; 
+        onClickAny({data: selectedButton})
     }
+
+    // handleClick(0);
 </script>
+  
+<div class="flex space-x-4 p-4">
+    {#each buttons as buttonId}
+        <button
+            onclick={() => handleClick(buttonId)}
+            class="py-2 px-4 bg-none 
+            {selectedButton === buttonId ? ' font-extrabold' : 'font-normal'}
+            text-white text-2xl leading-none tracking-tight w-48"
+        >
+            {buttonNames[buttonId]}
+        </button>
 
-<div class="flex">
-    {#each [0, 1] as number}
-        <label>
-            <input
-                type="radio"
-                name="scoops"
-                value={number}
-                bind:group={scoops}
-                onclick={onClick}
-            />
-
-            {number}
-        </label>
+        <p class="py-2 px-4 bg-none text-2xl text-white">|</p>
     {/each}
-
 </div>
