@@ -35,9 +35,9 @@ fn hit(r: vec3<f32>) -> f32 {
 	var p: f32 = 8.;
 	var d: f32 = 1.;
 
-	for (var i: i32 = 0; i < 20; i = i + 1) {
+	for (var i: i32 = 0; i < 10; i = i + 1) {
 		rad = length(zn);
-		if (rad > 2.) {
+		if (rad > 2.0) {
 			hit = 0.5 * log(rad) * rad / d;
 		} else { 
 			let th : f32 = atan2( length( zn.xy ), zn.z );
@@ -49,7 +49,7 @@ fn hit(r: vec3<f32>) -> f32 {
 			zn.x = rado * sint * cos(phi * p);
 			zn.y = rado * sint * sin(phi * p);
 			zn.z = rado * cos(th * p);
-			zn = zn + (r_var * 1.);
+			zn = zn + (r_var * 1.0);
 		}
 	}
 
@@ -57,23 +57,35 @@ fn hit(r: vec3<f32>) -> f32 {
 } 
 
 fn getDist(p: vec3<f32>) -> f32 {
-	let d: f32 = hit(rotate(p, 0, 0, 0)/6.0) * 6.0;
+	let d: f32 = hit(rotate(p, 0, 0, 0)/6.0) *6.0;
 	return d;
 } 
 
+// fn getNormal(p: vec3<f32>) -> vec3<f32> {
+// 	let e: vec2<f32> = vec2<f32>(0.001, 0.);
+// 	var n: vec3<f32> = getDist(p) - vec3<f32>(getDist(p - e.xyy), getDist(p - e.yxy), getDist(p - e.yyx));
+// 	return normalize(n);
+// } 
 fn getNormal(p: vec3<f32>) -> vec3<f32> {
-	let e: vec2<f32> = vec2<f32>(0.005, 0.);
-	var n: vec3<f32> = getDist(p) - vec3<f32>(getDist(p - e.xyy), getDist(p - e.yxy), getDist(p - e.yyx));
-	return normalize(n);
-} 
+    let epsilon: f32 = 0.01;
+    
+    let gradX: f32 = getDist(p + vec3<f32>(epsilon, 0.0, 0.0)) - getDist(p - vec3<f32>(epsilon, 0.0, 0.0));
+    let gradY: f32 = getDist(p + vec3<f32>(0.0, epsilon, 0.0)) - getDist(p - vec3<f32>(0.0, epsilon, 0.0));
+    let gradZ: f32 = getDist(p + vec3<f32>(0.0, 0.0, epsilon)) - getDist(p - vec3<f32>(0.0, 0.0, epsilon));
 
-fn doMarch(ro: vec3<f32>, rd: vec3<f32>) -> f32 {
+    var n: vec3<f32> = vec3<f32>(gradX, gradY, gradZ);
+
+    return normalize(n);
+}
+
+fn doMarch(ro: vec3<f32>, rd: vec3<f32>, steps: ptr<function, f32>) -> f32 {
     var t: f32 = 0.0;
+    var step:f32 = 0;
     for (var i: f32 = 0.0; i < 100.0; i += 1.0) {
         let pos = ro + rd * t;
         let dist = getDist(pos);
         t += dist;
-
+        step+=1.0;
         if (dist < 0.001) {
             break; // found something
         }
@@ -81,6 +93,8 @@ fn doMarch(ro: vec3<f32>, rd: vec3<f32>) -> f32 {
             break; // went too far ahead
         }
     }
+
+    *steps = step;
     return t;
 }
 
@@ -89,8 +103,8 @@ fn softshadow(ro: vec3<f32>, rd: vec3<f32>, k: f32) -> f32 {
     var h = 0.0;
     var t = 0.01;
     for (var i: i32 = 0; i < 50; i++) {
-        h = hit(ro + rd * t);
-        if (h < 0.001) {return 0.08;}
+        h = getDist(ro + rd * t);
+        if (h < 0.0001) {return 0.08;}
         akuma = min(akuma, k * h / t);
         t += clamp(h, 0.01, 2.0);
     }
@@ -118,11 +132,12 @@ fn main(
     ro += camera.posOffset.x * right; // Horizontal pan
     ro += camera.posOffset.y * up;     // Vertical pan
     var rd = normalize(uv.x * right + uv.y * up + forward);
-    var col = vec3<f32>(0.02);
+    var col = vec3<f32>(0.2);
     
-    let marchOut = doMarch(ro, rd);
+    var steps: f32;
+    let marchOut = doMarch(ro, rd, &steps);
 
-    if (marchOut < 100.0) {
+    if (marchOut < 1000.0) {
         // let p = ro + rd * marchOut;
         // let n = getNormal(p);
         // let r = reflect(rd, n);
@@ -136,15 +151,23 @@ fn main(
         let shadow = softshadow(p, sundir, 10.0);
         let diff = max(0.0, dot(n, sundir));
         let bac = max(0.3 + 0.7 * dot(vec3<f32>(-sundir.x, -1.0, -sundir.z), n), 0.0); 
-        
-        col = diff * shadow * sun * 4.5;
+
+        // var ao = 1.0;
+        var ao = steps * 0.015;
+        ao = 1. - ao / (ao + 1.0);  // reinhard
+        ao = pow(ao, 2.);
+
+        col = diff  * sun * 4.5 * ao;
         col += 0.2 * bac * sun; 
         let tc0 = 0.5 + 0.5 * sin(3.0 + 4.2 + vec3<f32>(0.0, 0.5, 1.0));
         col *= vec3<f32>(0.9, 0.8, 0.6) * 0.2 * tc0;
+        // col = vec3<f32>(marchOut*0.01);
     }
 
     col = pow(clamp(col, vec3<f32>(0.0), vec3<f32>(1.0)), vec3<f32>(0.55)); 
     col = mix(col, vec3<f32>(dot(col, vec3<f32>(0.33))), -0.5);
 
+    
+    // return vec4<f32>(col, 1.0);
     return vec4<f32>(col, 1.0);
 }

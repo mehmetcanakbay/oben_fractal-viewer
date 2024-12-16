@@ -36,6 +36,7 @@ export class Renderer {
 
     public switchPipeline(id: number) {
         this.selectedPipeline = id;
+        this.camera.resetVariables();
     }
 
     private async initialize(onInitFinish : ()=>void) {

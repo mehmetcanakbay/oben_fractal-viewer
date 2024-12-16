@@ -57,6 +57,18 @@ export class ArcballCamera {
         this.rotationOffsetArr.set([degreesToRadians(this.rotationOffsetX), degreesToRadians(this.rotationOffsetY), 0]);
     }
 
+    public resetVariables() {
+        this.panOffsetX = 0;
+        this.panOffsetY = 0;
+
+        this.cameraRotationX = 0;
+        this.cameraRotationY = 0;
+        this.radius = 20;
+
+        this.rotationOffsetX = 0;
+        this.rotationOffsetY = 0;
+    }
+
     get rayOrigin() {
         return this.ro;
     }

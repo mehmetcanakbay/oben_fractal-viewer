@@ -88,7 +88,7 @@ fn getNormal(p: vec3<f32>) -> vec3<f32> {
     return normalize(n);
 }
 
-fn doMarch(ro: vec3<f32>, rd: vec3<f32>) -> f32 {
+fn doMarch(ro: vec3<f32>, rd: vec3<f32>, steps: ptr<function, f32>) -> f32 {
     var t: f32 = 0.0;
     for (var i: f32 = 0.0; i < 100.0; i += 1.0) {
         let pos = ro + rd * t;
@@ -130,7 +130,8 @@ fn main(
     var rd = normalize(uv.x * right + uv.y * up + forward);
     var col = vec3<f32>(0.02);
     
-    let marchOut = doMarch(ro, rd);
+    var steps: f32;
+    let marchOut = doMarch(ro, rd, &steps);
 
     if (marchOut < 100.0) {
         let p = ro + rd * marchOut;
@@ -138,8 +139,12 @@ fn main(
         let shadow = softshadow(p, sundir, 10.0);
         let diff = max(0.0, dot(n, sundir));
         let bac = max(0.3 + 0.7 * dot(vec3<f32>(-sundir.x, -1.0, -sundir.z), n), 0.0); 
-        
-        col = diff * shadow * sun * 4.5;
+
+        var ao = steps * 0.015;
+        ao = 1. - ao / (ao + 1.0);  // reinhard
+        ao = pow(ao, 2.);
+
+        col = diff * shadow * sun * 4.5 * ao;
         col += 0.2 * bac * sun; 
         let tc0 = 0.5 + 0.5 * sin(3.0 + 4.2 + vec3<f32>(0.0, 0.5, 1.0));
         col *= vec3<f32>(0.9, 0.8, 0.6) * 0.2 * tc0;
