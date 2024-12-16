@@ -132,7 +132,7 @@ fn main(
     ro += camera.posOffset.x * right; // Horizontal pan
     ro += camera.posOffset.y * up;     // Vertical pan
     var rd = normalize(uv.x * right + uv.y * up + forward);
-    var col = vec3<f32>(0.2);
+    var col = vec3<f32>(0.02);
     
     var steps: f32;
     let marchOut = doMarch(ro, rd, &steps);

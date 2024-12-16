@@ -50,11 +50,11 @@
 		</div>
 
 		<div class="relative h-full w-full">
-			<div class="fixed top-0 left-1/4">
+			<div class="fixed top-0 left-1/3">
 				<ShaderSelection onClickAny={onChangeShader}/>
 			</div>
 		</div>
-		<Sidebar/>
+		<!-- <Sidebar/> -->
 	</main>
 </div>
 
