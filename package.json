@@ -30,6 +30,8 @@
 	"type": "module",
 	"dependencies": {
 		"@fontsource-variable/outfit": "^5.1.0",
+		"@types/events": "^3.0.3",
+		"events": "^3.3.0",
 		"gsap": "^3.12.5"
 	}
 }

@@ -3,16 +3,17 @@ import { createInputHandler } from "./input";
 import { quadPositionOffset, quadUVOffset, quadVertArray, quadVertexCount, quadVertexSize } from "./shapes/fullscreenQuad";
 import { quitIfWebGPUNotAvailable } from "./utils";
 import basicVert from "./shaders/basic.vert.wgsl?raw"
+import type { Parameters } from "./parameters";
 
 export class Renderer {
     private canvas: HTMLCanvasElement;
-    private device: GPUDevice;
+    public device: GPUDevice;
     private context: GPUCanvasContext;
     private inputHandler: any; // Define more specific type if needed
     private camera: ArcballCamera;
     private uniformBuffer: GPUBuffer;
     private cameraUniformBuffer: GPUBuffer;
-    private bindGroup: GPUBindGroup;
+    private bindGroups: GPUBindGroup[] = [];
     private pipelines: GPURenderPipeline[] = [];
     private selectedPipeline: number = 0;
     private uniformVals: Float32Array;
@@ -63,9 +64,35 @@ export class Renderer {
         onInitFinish();
     }
 
-    public setupPipelines(fragShaders: string[]) {
+    public setupPipelines(fragShaders: string[], parameters: (Parameters | null)[]) {
         for (let i = 0; i<fragShaders.length;i++) {
-            const pipeline : GPURenderPipeline = this.setupPipeline(this.presentationFormat, fragShaders[i]);
+            const entries: GPUBindGroupLayoutEntry[] = [ 
+                { binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' as GPUBufferBindingType } }, 
+                { binding: 1, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' as GPUBufferBindingType } }, 
+            ];
+
+            if (parameters && parameters[i]) entries.push(parameters[i].returnBindLayout())
+
+            const bindGroupLayout = this.device.createBindGroupLayout(
+                {
+                    entries: entries,
+                }
+            );
+
+            const bindGroupEntries: GPUBindGroupEntry[] = [ 
+                { binding: 0, resource: { buffer: this.uniformBuffer } },
+                { binding: 1, resource: { buffer: this.cameraUniformBuffer } },
+            ];
+
+            if (parameters && parameters[i]) bindGroupEntries.push(parameters[i].returnBindGroup())
+    
+            const bindGroup = this.device.createBindGroup({
+                layout: bindGroupLayout,
+                entries: bindGroupEntries
+            });
+
+            const pipeline : GPURenderPipeline = this.setupPipeline(this.presentationFormat, fragShaders[i], bindGroupLayout);
+            this.bindGroups.push(bindGroup);
             this.pipelines.push(pipeline);
         }
     }
@@ -108,38 +135,24 @@ export class Renderer {
             ],
         } as GPUVertexBufferLayout;
 
-        this.uniformBuffer = this.device.createBuffer({
-            size: 4 * 4,
-            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-        });
-
+        //common buffers
         this.uniformVals = new Float32Array(4);
+        this.cameraUniformVals = new Float32Array(12);
+
         this.cameraUniformBuffer = this.device.createBuffer({
             size: 12 * 4,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
         });
 
-        this.cameraUniformVals = new Float32Array(12);
-
-        this.bindGroupLayout = this.device.createBindGroupLayout({
-            entries: [
-                { binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
-                { binding: 1, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }
-            ],
-        });
-
-        this.bindGroup = this.device.createBindGroup({
-            layout: this.bindGroupLayout,
-            entries: [
-                { binding: 0, resource: { buffer: this.uniformBuffer } },
-                { binding: 1, resource: { buffer: this.cameraUniformBuffer } }
-            ]
+        this.uniformBuffer = this.device.createBuffer({
+            size: 4 * 4,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
         });
     }
 
-    private setupPipeline(presentationFormat: GPUTextureFormat, fragShader : string) {
+    private setupPipeline(presentationFormat: GPUTextureFormat, fragShader : string, bindGroupLayout: GPUBindGroupLayout) {
         const pipelineLayout = this.device.createPipelineLayout({
-            bindGroupLayouts: [this.bindGroupLayout],
+            bindGroupLayouts: [bindGroupLayout],
         });
 
         const newPipeline : GPURenderPipeline  = this.device.createRenderPipeline({
@@ -198,7 +211,7 @@ export class Renderer {
         const commander = this.device.createCommandEncoder();
         const passEncoder = commander.beginRenderPass(renderPassDescriptor);
         passEncoder.setPipeline(this.pipelines[this.selectedPipeline]);
-        passEncoder.setBindGroup(0, this.bindGroup);
+        passEncoder.setBindGroup(0, this.bindGroups[this.selectedPipeline]);
         passEncoder.setVertexBuffer(0, this.vertBuffer);
         passEncoder.draw(quadVertexCount);
         passEncoder.end();

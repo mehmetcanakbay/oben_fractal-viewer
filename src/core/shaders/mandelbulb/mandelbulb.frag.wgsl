@@ -10,8 +10,14 @@ struct Camera {
     rotationOffset: vec4<f32>,
 }
 
+struct Parameters {
+    dimensions: f32,
+    pad: vec2<f32>
+}
+
 @group(0) @binding(0) var<uniform> utils: Utils;
 @group(0) @binding(1) var<uniform> camera: Camera;
+@group(0) @binding(2) var<uniform> params: Parameters;
 
 fn rotate(pos: vec3<f32>, x: f32, y: f32, z: f32) -> vec3<f32> {
 	let rotX: mat3x3<f32> = mat3x3<f32>(1., 0., 0., 0., cos(x), -sin(x), 0., sin(x), cos(x));
@@ -32,7 +38,7 @@ fn hit(r: vec3<f32>) -> f32 {
 	var zn: vec3<f32> = vec3<f32>(r_var.xyz);
 	var rad: f32 = 0.;
 	var hit: f32 = 0.;
-	var p: f32 = 8.;
+	var p: f32 = params.dimensions;
 	var d: f32 = 1.;
 
 	for (var i: i32 = 0; i < 10; i = i + 1) {

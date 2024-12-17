@@ -7,14 +7,19 @@
 	import basicFrag from "../core/shaders/basic.frag.wgsl?raw"
 	import Sidebar from "../components/Sidebar.svelte";
 	import ShaderSelection from "../components/ShaderSelection.svelte";
+	import { Parameters } from '../core/parameters';
+	import globals from '../core/globals';
 
 	let { children } = $props();
 	
 	let canvas : HTMLCanvasElement | undefined = $state();
 	let renderer : Renderer;
+	const mandelbulbParams = new Parameters();
 	onMount(()=>{
 		renderer = new Renderer("mainCanvas", ()=>{
-			renderer.setupPipelines([mandelFrag, mandelbulbFrag, basicFrag]);
+			mandelbulbParams.initializeBuffer(renderer.device, 4, 2)
+			mandelbulbParams.changeValue(renderer.device, 8, 0);
+			renderer.setupPipelines([mandelFrag, mandelbulbFrag, basicFrag], [null, mandelbulbParams, null]);
 		});
 		renderer.switchPipeline(1);
 		renderer.start();
@@ -36,6 +41,10 @@
 		renderer.switchPipeline(data.data);
 	}
 
+	globals.eventEmitter.on("sliderchange",(val)=>{
+		mandelbulbParams.changeValue(renderer.device, val, 0);
+	})
+
 </script>
 
 <svelte:head>
@@ -54,7 +63,7 @@
 				<ShaderSelection onClickAny={onChangeShader}/>
 			</div>
 		</div>
-		<!-- <Sidebar/> -->
+		<Sidebar/>
 	</main>
 </div>
 
