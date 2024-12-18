@@ -42,7 +42,8 @@
 	}
 
 	globals.eventEmitter.on("sliderchange",(val)=>{
-		mandelbulbParams.changeValue(renderer.device, val, 0);
+		if (renderer)
+			mandelbulbParams.changeValue(renderer.device, val, 0);
 	})
 
 </script>
