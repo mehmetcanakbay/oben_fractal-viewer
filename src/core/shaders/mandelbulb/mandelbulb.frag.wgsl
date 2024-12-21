@@ -12,7 +12,11 @@ struct Camera {
 
 struct Parameters {
     dimensions: f32,
-    pad: vec2<f32>
+    mandelbulbIterations: f32,
+    rayMarchIterations: f32,
+    rayMarchDistance: f32,
+    fractalColor: vec3<f32>,
+    normalEpsilon: f32,
 }
 
 @group(0) @binding(0) var<uniform> utils: Utils;
@@ -20,60 +24,55 @@ struct Parameters {
 @group(0) @binding(2) var<uniform> params: Parameters;
 
 fn rotate(pos: vec3<f32>, x: f32, y: f32, z: f32) -> vec3<f32> {
-	let rotX: mat3x3<f32> = mat3x3<f32>(1., 0., 0., 0., cos(x), -sin(x), 0., sin(x), cos(x));
-	let rotY: mat3x3<f32> = mat3x3<f32>(cos(y), 0., sin(y), 0., 1., 0., -sin(y), 0., cos(y));
-	let rotZ: mat3x3<f32> = mat3x3<f32>(cos(z), -sin(z), 0., sin(z), cos(z), 0., 0., 0., 1.);
-	return rotX * rotY * rotZ * pos;
+    let rotX: mat3x3<f32> = mat3x3<f32>(1., 0., 0., 0., cos(x), -sin(x), 0., sin(x), cos(x));
+    let rotY: mat3x3<f32> = mat3x3<f32>(cos(y), 0., sin(y), 0., 1., 0., -sin(y), 0., cos(y));
+    let rotZ: mat3x3<f32> = mat3x3<f32>(cos(z), -sin(z), 0., sin(z), cos(z), 0., 0., 0., 1.);
+    return rotX * rotY * rotZ * pos;
 } 
 
 fn rot2d(a: f32) -> mat2x2<f32> {
-	let s: f32 = sin(a);
-	let c: f32 = cos(a);
-	return mat2x2<f32>(c, -s, s, c);
+    let s: f32 = sin(a);
+    let c: f32 = cos(a);
+    return mat2x2<f32>(c, -s, s, c);
 } 
 
 fn hit(r: vec3<f32>) -> f32 {
-	var r_var = r;
-	r_var = abs(r_var);
-	var zn: vec3<f32> = vec3<f32>(r_var.xyz);
-	var rad: f32 = 0.;
-	var hit: f32 = 0.;
-	var p: f32 = params.dimensions;
-	var d: f32 = 1.;
+    var r_var = r;
+    r_var = abs(r_var);
+    var zn: vec3<f32> = vec3<f32>(r_var.xyz);
+    var rad: f32 = 0.;
+    var hit: f32 = 0.;
+    var p: f32 = params.dimensions;
+    var d: f32 = 1.;
 
-	for (var i: i32 = 0; i < 10; i = i + 1) {
-		rad = length(zn);
-		if (rad > 2.0) {
-			hit = 0.5 * log(rad) * rad / d;
-		} else { 
-			let th : f32 = atan2( length( zn.xy ), zn.z );
-			let phi : f32 = atan2( zn.y, zn.x );		
-			let rado : f32 = pow(rad,8.0);
+    for (var i: f32 = 0; i < params.mandelbulbIterations; i = i + 1) {
+        rad = length(zn);
+        if (rad > 2.0) {
+            hit = 0.5 * log(rad) * rad / d;
+        } else { 
+            let th : f32 = atan2( length( zn.xy ), zn.z );
+            let phi : f32 = atan2( zn.y, zn.x );		
+            let rado : f32 = pow(rad,8.0);
 
-			d = pow(rad, 8.) * 8. * d + 1.;
-			let sint: f32 = sin(th * p);
-			zn.x = rado * sint * cos(phi * p);
-			zn.y = rado * sint * sin(phi * p);
-			zn.z = rado * cos(th * p);
-			zn = zn + (r_var * 1.0);
-		}
-	}
+            d = pow(rad, 8.) * 8. * d + 1.;
+            let sint: f32 = sin(th * p);
+            zn.x = rado * sint * cos(phi * p);
+            zn.y = rado * sint * sin(phi * p);
+            zn.z = rado * cos(th * p);
+            zn = zn + (r_var * 1.0);
+        }
+    }
 
-	return hit;
+    return hit;
 } 
 
 fn getDist(p: vec3<f32>) -> f32 {
-	let d: f32 = hit(rotate(p, 0, 0, 0)/6.0) *6.0;
-	return d;
+    let d: f32 = hit(p/6.0) * 6.0;
+    return d;
 } 
 
-// fn getNormal(p: vec3<f32>) -> vec3<f32> {
-// 	let e: vec2<f32> = vec2<f32>(0.001, 0.);
-// 	var n: vec3<f32> = getDist(p) - vec3<f32>(getDist(p - e.xyy), getDist(p - e.yxy), getDist(p - e.yyx));
-// 	return normalize(n);
-// } 
 fn getNormal(p: vec3<f32>) -> vec3<f32> {
-    let epsilon: f32 = 0.01;
+    let epsilon: f32 = params.normalEpsilon;
     
     let gradX: f32 = getDist(p + vec3<f32>(epsilon, 0.0, 0.0)) - getDist(p - vec3<f32>(epsilon, 0.0, 0.0));
     let gradY: f32 = getDist(p + vec3<f32>(0.0, epsilon, 0.0)) - getDist(p - vec3<f32>(0.0, epsilon, 0.0));
@@ -87,15 +86,15 @@ fn getNormal(p: vec3<f32>) -> vec3<f32> {
 fn doMarch(ro: vec3<f32>, rd: vec3<f32>, steps: ptr<function, f32>) -> f32 {
     var t: f32 = 0.0;
     var step:f32 = 0;
-    for (var i: f32 = 0.0; i < 100.0; i += 1.0) {
+    for (var i: f32 = 0.0; i < params.rayMarchIterations; i += 1.0) {
         let pos = ro + rd * t;
         let dist = getDist(pos);
         t += dist;
         step+=1.0;
-        if (dist < 0.001) {
+        if (dist < params.rayMarchDistance) {
             break; // found something
         }
-        if (abs(t) > 1000.0) {
+        if (abs(t) > 100.0) {
             break; // went too far ahead
         }
     }
@@ -143,7 +142,7 @@ fn main(
     var steps: f32;
     let marchOut = doMarch(ro, rd, &steps);
 
-    if (marchOut < 1000.0) {
+    if (marchOut < 100.0) {
         // let p = ro + rd * marchOut;
         // let n = getNormal(p);
         // let r = reflect(rd, n);
@@ -159,14 +158,17 @@ fn main(
         let bac = max(0.3 + 0.7 * dot(vec3<f32>(-sundir.x, -1.0, -sundir.z), n), 0.0); 
 
         // var ao = 1.0;
-        var ao = steps * 0.015;
+        var ao = steps * 0.005;
         ao = 1. - ao / (ao + 1.0);  // reinhard
         ao = pow(ao, 2.);
 
         col = diff  * sun * 4.5 * ao;
-        col += 0.2 * bac * sun; 
-        let tc0 = 0.5 + 0.5 * sin(3.0 + 4.2 + vec3<f32>(0.0, 0.5, 1.0));
-        col *= vec3<f32>(0.9, 0.8, 0.6) * 0.2 * tc0;
+        let mandelHeight = pow(hit(p), 0.8);
+        let tc0 = 0.5 + 0.5 * sin(3.0 + 4.0 * mandelHeight + params.fractalColor);
+        col *= 0.2 * tc0;
+        // col *= mix(params.fractalColor, params.fractalColorSecondary, hit(p)/10);
+        // col *= mix(vec3<f32>(1.0), params.fractalColor, col*2.0);
+        // col *= vec3<f32>(1.0) * 0.2 * tc0;
         // col = vec3<f32>(marchOut*0.01);
     }
 
@@ -174,6 +176,6 @@ fn main(
     col = mix(col, vec3<f32>(dot(col, vec3<f32>(0.33))), -0.5);
 
     
-    // return vec4<f32>(col, 1.0);
+    // col = vec3<f32>(1e-12) * 10000000000000;
     return vec4<f32>(col, 1.0);
 }

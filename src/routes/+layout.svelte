@@ -13,13 +13,15 @@
 	let { children } = $props();
 	
 	let canvas : HTMLCanvasElement | undefined = $state();
-	let renderer : Renderer;
+	let renderer : Renderer = $state();
+	const mandelboxParams = new Parameters();
 	const mandelbulbParams = new Parameters();
+	const params : (Parameters | null)[] =  [mandelboxParams, mandelbulbParams];
 	onMount(()=>{
 		renderer = new Renderer("mainCanvas", ()=>{
-			mandelbulbParams.initializeBuffer(renderer.device, 4, 2)
-			mandelbulbParams.changeValue(renderer.device, 8, 0);
-			renderer.setupPipelines([mandelFrag, mandelbulbFrag, basicFrag], [null, mandelbulbParams, null]);
+			mandelboxParams.initializeBuffer (renderer.device, 8, 2)
+			mandelbulbParams.initializeBuffer(renderer.device, 8, 2)
+			renderer.setupPipelines([mandelFrag, mandelbulbFrag], params);
 		});
 		renderer.switchPipeline(1);
 		renderer.start();
@@ -39,12 +41,8 @@
 	}
 	function onChangeShader(data: shaderChangeData) {
 		renderer.switchPipeline(data.data);
+		globals.eventEmitter.emit("changedShaders", data.data);
 	}
-
-	globals.eventEmitter.on("sliderchange",(val)=>{
-		if (renderer)
-			mandelbulbParams.changeValue(renderer.device, val, 0);
-	})
 
 </script>
 
@@ -60,11 +58,13 @@
 		</div>
 
 		<div class="relative h-full w-full">
-			<div class="fixed top-0 left-1/3">
+			<div class="fixed top-0 left-1/2 transform -translate-x-1/2 p-4">
 				<ShaderSelection onClickAny={onChangeShader}/>
 			</div>
 		</div>
-		<Sidebar/>
+		{#if renderer !== undefined}
+			<Sidebar renderer={renderer} params={params} />
+		{/if}
 	</main>
 </div>
 

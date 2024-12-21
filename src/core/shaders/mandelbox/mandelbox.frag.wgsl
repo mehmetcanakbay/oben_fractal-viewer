@@ -10,9 +10,18 @@ struct Camera {
     rotationOffset: vec4<f32>,
 }
 
+struct Parameters {
+    dimension: f32,
+    mandelboxIterations: f32,
+    rayMarchIterations: f32,
+    rayMarchDistance: f32,
+    fractalColor: vec3<f32>,
+    normalEpsilon: f32,
+}
+
 @group(0) @binding(0) var<uniform> utils: Utils;
 @group(0) @binding(1) var<uniform> camera: Camera;
-
+@group(0) @binding(2) var<uniform> params: Parameters;
 
 fn rotate(pos: vec3<f32>, x: f32, y: f32, z: f32) -> vec3<f32> {
     let rotX = mat3x3<f32>(1.0, 0.0, 0.0, 
@@ -34,7 +43,7 @@ fn rot2d(a: f32) -> mat2x2<f32> {
 }
 
 fn hit(r: vec3<f32>) -> f32 {
-    const SCALE: f32 = 2.;
+    let SCALE: f32 = params.dimension;
     const fixedRadius: f32 = 1.0;
     const minRadius: f32 = 0.5;
     const iters: i32 = 10;
@@ -49,7 +58,7 @@ fn hit(r: vec3<f32>) -> f32 {
     // p -= vec4<f32>(camera.posOffset.xyz, 0.0);
     let p0 = p;
 
-    for (var i: i32 = 0; i < iters; i++) {
+    for (var i: f32 = 0.0; i < params.mandelboxIterations; i+=1.0) {
         let clampedXYZ = clamp(p.xyz, vec3<f32>(-1.0), vec3<f32>(1.0));
         p = vec4<f32>(clampedXYZ * 2.0 - p.xyz, p.w); // Update p as a whole
         
@@ -66,7 +75,7 @@ fn softshadow(ro: vec3<f32>, rd: vec3<f32>, k: f32) -> f32 {
     var h = 0.0;
     var t = 0.01;
     for (var i: i32 = 0; i < 50; i++) {
-        h = hit(ro + rd * t);
+        h = getDist(ro + rd * t);
         if (h < 0.001) {return 0.02;}
         akuma = min(akuma, k * h / t);
         t += clamp(h, 0.01, 2.0);
@@ -75,27 +84,29 @@ fn softshadow(ro: vec3<f32>, rd: vec3<f32>, k: f32) -> f32 {
 }
 
 fn getDist(p: vec3<f32>) -> f32 {
-    return hit(p);
+    return hit(p/0.8) * 0.8;
 }
 
 fn getNormal(p: vec3<f32>) -> vec3<f32> {
-    let e = vec2<f32>(0.0005, 0.0);
-    var n = getDist(p) - vec3<f32>(
-        getDist(p - vec3<f32>(e.x, 0.0, 0.0)),
-        getDist(p - vec3<f32>(0.0, e.x, 0.0)),
-        getDist(p - vec3<f32>(0.0, 0.0, e.x))
-    );
+    let epsilon: f32 = params.normalEpsilon;
+    
+    let gradX: f32 = getDist(p + vec3<f32>(epsilon, 0.0, 0.0)) - getDist(p - vec3<f32>(epsilon, 0.0, 0.0));
+    let gradY: f32 = getDist(p + vec3<f32>(0.0, epsilon, 0.0)) - getDist(p - vec3<f32>(0.0, epsilon, 0.0));
+    let gradZ: f32 = getDist(p + vec3<f32>(0.0, 0.0, epsilon)) - getDist(p - vec3<f32>(0.0, 0.0, epsilon));
+
+    var n: vec3<f32> = vec3<f32>(gradX, gradY, gradZ);
+
     return normalize(n);
 }
 
 fn doMarch(ro: vec3<f32>, rd: vec3<f32>, steps: ptr<function, f32>) -> f32 {
     var t: f32 = 0.0;
-    for (var i: f32 = 0.0; i < 100.0; i += 1.0) {
+    for (var i: f32 = 0.0; i < params.rayMarchIterations; i += 1.0) {
         let pos = ro + rd * t;
         let dist = getDist(pos);
         t += dist;
 
-        if (dist < 0.001) {
+        if (dist < params.rayMarchDistance) {
             break; // found something
         }
         if (t > 100.0) {
@@ -104,7 +115,6 @@ fn doMarch(ro: vec3<f32>, rd: vec3<f32>, steps: ptr<function, f32>) -> f32 {
     }
     return t;
 }
-
 
 @fragment
 fn main(
@@ -147,7 +157,7 @@ fn main(
         col = diff * shadow * sun * 4.5 * ao;
         col += 0.2 * bac * sun; 
         let tc0 = 0.5 + 0.5 * sin(3.0 + 4.2 + vec3<f32>(0.0, 0.5, 1.0));
-        col *= vec3<f32>(0.9, 0.8, 0.6) * 0.2 * tc0;
+        col *= params.fractalColor * 0.2 * tc0;
     } 
     
     col = pow(clamp(col, vec3<f32>(0.0), vec3<f32>(1.0)), vec3<f32>(0.55)); 

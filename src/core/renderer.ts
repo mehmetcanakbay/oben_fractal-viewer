@@ -40,6 +40,14 @@ export class Renderer {
         this.camera.resetVariables();
     }
 
+    public setCameraSensitivity(newSens: number) {
+        this.camera.setSensitivity(newSens);
+    }
+
+    public setCameraZoomAmount(newZoom: number) {
+        this.camera.setZoomSpeed(newZoom);
+    }
+
     private async initialize(onInitFinish : ()=>void) {
         const adapter = await navigator.gpu.requestAdapter();
         if (adapter) 

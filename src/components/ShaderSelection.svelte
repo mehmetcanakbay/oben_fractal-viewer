@@ -1,11 +1,11 @@
 <script lang="ts">
     let { onClickAny } = $props();
 
-    const buttons = [0, 1, 2];
+    const buttons = [0, 1];
   
     let selectedButton = $state(1);
 
-    const buttonNames = ["Mandelbox", "Mandelbulb", "Basic"]
+    const buttonNames = ["Mandelbox", "Mandelbulb"]
     
   
     function handleClick(buttonId: any) {
@@ -16,7 +16,7 @@
     // handleClick(0);
 </script>
   
-<div class="flex space-x-4 p-4">
+<div class="flex space-x-4">
     {#each buttons as buttonId}
         <button
             onclick={() => handleClick(buttonId)}
