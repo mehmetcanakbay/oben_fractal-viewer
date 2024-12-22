@@ -29,10 +29,12 @@
 		renderer.start();
 
 		const resizeCanvas = ()=> {
-			console.log(canvas?.width, canvas?.height)
+			console.log(canvas?.width, canvas?.height, devicePixelRatio)
 			if (canvas) {
-				canvas.width = window.innerWidth;
-				canvas.height = window.innerHeight;
+				canvas.width = window.innerWidth   / window.devicePixelRatio;
+				canvas.height = window.innerHeight / window.devicePixelRatio;
+				// canvas.width = window.screen.width;
+				// canvas.height = window.screen.height;
 			}
 		}
 		window.addEventListener('resize', resizeCanvas, false);
@@ -68,16 +70,16 @@
 			</div>
 		</div>
 	{:else}
-		<main>
-			<div id="app">
-				<canvas width="1200" height="1000" id="mainCanvas" bind:this={canvas}></canvas>
+		<main class="w-full h-full">
+			<div id="app" class="w-full h-full ">
+				<canvas width="5" height="5" id="mainCanvas" bind:this={canvas}></canvas>
 			</div>
 
-			<div class="relative h-full w-full">
+			<!-- <div class="relative h-full w-full"> -->
 				<div class="fixed top-0 left-1/2 transform -translate-x-1/2 p-4">
 					<ShaderSelection onClickAny={onChangeShader}/>
 				</div>
-			</div>
+			<!-- </div> -->
 			{#if renderer !== undefined}
 				<Sidebar renderer={renderer} params={params} />
 			{/if}
