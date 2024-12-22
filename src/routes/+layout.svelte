@@ -29,6 +29,7 @@
 		renderer.start();
 
 		const resizeCanvas = ()=> {
+			console.log(canvas?.width, canvas?.height)
 			if (canvas) {
 				canvas.width = window.innerWidth;
 				canvas.height = window.innerHeight;
