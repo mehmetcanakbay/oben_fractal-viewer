@@ -4,7 +4,7 @@ import { quadPositionOffset, quadUVOffset, quadVertArray, quadVertexCount, quadV
 import { quitIfWebGPUNotAvailable } from "./utils";
 import basicVert from "./shaders/basic.vert.wgsl?raw"
 import type { Parameters } from "./parameters";
-
+import globals from "./globals"
 export class Renderer {
     private canvas: HTMLCanvasElement;
     public device: GPUDevice;
@@ -48,11 +48,15 @@ export class Renderer {
         this.camera.setZoomSpeed(newZoom);
     }
 
-    private async initialize(onInitFinish : ()=>void) {
-        const adapter = await navigator.gpu.requestAdapter();
+    public async initialize(onInitFinish : ()=>void) {
+        const adapter = await navigator.gpu?.requestAdapter();
         if (adapter) 
             this.device = await adapter.requestDevice();
-        else console.error("Adapter is not found!!");
+        else {
+            console.error("WebGPU is not available on this browser.");
+            globals.eventEmitter.emit("webGPU_error", "WebGPU not available on this browser!")
+            return false;
+        }
         quitIfWebGPUNotAvailable(adapter, this.device);
 
         this.resizeCanvas();
@@ -70,6 +74,8 @@ export class Renderer {
         this.setupBuffers();
 
         onInitFinish();
+
+        return true;
     }
 
     public setupPipelines(fragShaders: string[], parameters: (Parameters | null)[]) {
